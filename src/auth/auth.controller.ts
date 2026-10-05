@@ -5,6 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import * as express from 'express';
+import { ApiHeader } from '@nestjs/swagger';
 
 @Controller('auth')
 @UseInterceptors(RateLimitInterceptor)
@@ -13,7 +14,8 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(200)
-  @RateLimit({ limit: 3, window: 3600, keyBy: 'email' })
+  @ApiHeader({ name: 'X-Forwarded-For', required: false, example: '1.1.1.1' })
+  @RateLimit({ limit: 3, window: 3600, keyBy: 'ip' })
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
