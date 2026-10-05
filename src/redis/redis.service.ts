@@ -16,12 +16,13 @@ export class RedisService {
         });
     }
 
-//   async slidingWindow(key: string, limit: number, windowSec: number): Promise<boolean> {
-//     const script = readFileSync(
-//       join(process.cwd(), 'src/redis/lua-scripts/sliding-window.lua'), 'utf8');
-//     const now = Date.now();
-//     const result = await this.client.eval(
-//       script, 1, key, now, windowSec, limit, `${now}-${Math.random()}`);
-//     return result === 1; // 1 = allowed, 0 = blocked
-//   }
+  async slidingWindow(key: string, limit: number, windowSec: number): Promise<boolean> {
+
+    const script = readFileSync(
+      join(process.cwd(), 'src/redis/lua-scripts/sliding-window.lua'), 'utf8');
+    const now = Date.now();
+    const result = await this.client.eval(
+      script, 1, key, now, windowSec, limit, `${now}-${Math.random()}`);
+    return result === 1; // 1 = allowed, 0 = blocked
+  }
 }

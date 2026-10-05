@@ -202,11 +202,11 @@ npm run lint         # lint
 
 ## Roadmap
 
-- [x] NestJS setup, Redis and MongoDB connection
-- [x] Register and login endpoints with DTO validation
-- [x] Swagger docs
-- [ ] Sliding window Lua script
-- [ ] `@RateLimit()` decorator and interceptor
+- ✅ NestJS setup, Redis and MongoDB connection
+- ✅ Register and login endpoints with DTO validation
+- ✅ Swagger docs
+- ✅ Sliding window Lua script
+- ✅ `@RateLimit()` decorator and interceptor
 - [ ] Token bucket Lua script
 - [ ] `X-RateLimit-*` headers
 - [ ] Whitelist / blacklist and admin API

@@ -12,14 +12,15 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @RateLimit({ limit: 3, window: 3600, keyBy: 'ip' })
   @HttpCode(200)
+  @RateLimit({ limit: 3, window: 3600, keyBy: 'email' })
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
   @HttpCode(200)
+  @RateLimit({ limit: 3, window: 3, keyBy: 'email' })
   login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: express.Response,
