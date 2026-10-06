@@ -6,7 +6,7 @@ import { RateLimit } from '../decorators/rate-limit.decorator';
 import { RateLimitInterceptor } from 'src/interceptors/rate-limit.interceptor';
 
 @Controller('otp')
-@UseInterceptors(RateLimitInterceptor)      // <- this line was missing
+@UseInterceptors(RateLimitInterceptor)     
 export class OtpController {
     constructor(private readonly optService: OtpService) {}
     

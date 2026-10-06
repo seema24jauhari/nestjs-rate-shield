@@ -17,14 +17,14 @@ export class AuthController {
   @Post('register')
   @HttpCode(200)
   @ApiHeader({ name: 'X-Forwarded-For', required: false, example: '1.1.1.1' })
-  @RateLimit({ limit: 3, window: 60, keyBy: 'ip' })
+  @RateLimit({ limit: 3, window: 3600, keyBy: 'ip' })
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
   @HttpCode(200)
-  @RateLimit({ limit: 3, window: 60, keyBy: 'email' })
+  @RateLimit({ limit: 3, window: 900, keyBy: 'email' })
   login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: express.Response,
@@ -34,13 +34,14 @@ export class AuthController {
   }
 
   @Post('forget-password')
-  @RateLimit({ limit: 3, window: 60, keyBy: 'email' })
+  @RateLimit({ limit: 3, window: 3600, keyBy: 'email' })
   @HttpCode(200)
   forgotPassword(@Body() forgetPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgetPasswordDto.email);
   }
 
   @Post('reset-password')
+  @RateLimit({ limit: 5, window: 900, keyBy: 'email' })
   @HttpCode(200)
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(

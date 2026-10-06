@@ -43,7 +43,9 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder().setTitle('Rate Limiter').build();
+  const swaggerConfig = new DocumentBuilder().setTitle('Rate Limiter')
+  .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
+  .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 

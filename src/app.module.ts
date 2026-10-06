@@ -8,8 +8,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { TokensModule } from './tokens/tokens.module';
-import { OtpController } from './otp/otp.controller';
 import { OtpModule } from './otp/otp.module';
+import { AdminModule } from './admin/admin.module';
+import { MerticsController } from './mertics/mertics.controller';
+import { MerticsService } from './mertics/mertics.service';
+import { MerticsModule } from './mertics/mertics.module';
 
 @Module({
   imports: [
@@ -21,10 +24,10 @@ import { OtpModule } from './otp/otp.module';
         uri: config.get<string>('DATABASE_URI'),
       }),
     }), 
-    UsersModule, TokensModule, OtpModule,
+    UsersModule, TokensModule, OtpModule, AdminModule, MerticsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, MerticsController],
+  providers: [AppService, MerticsService],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
