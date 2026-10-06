@@ -8,6 +8,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { TokensModule } from './tokens/tokens.module';
+import { OtpController } from './otp/otp.controller';
+import { OtpModule } from './otp/otp.module';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { TokensModule } from './tokens/tokens.module';
         uri: config.get<string>('DATABASE_URI'),
       }),
     }), 
-    UsersModule, TokensModule,
+    UsersModule, TokensModule, OtpModule,
   ],
   controllers: [AppController],
   providers: [AppService],

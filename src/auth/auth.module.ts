@@ -9,6 +9,7 @@ import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { PassportModule } from '@nestjs/passport';
 import { TokensModule } from 'src/tokens/tokens.module';
+import { MailModule } from 'src/mail/mail.module';
 
 
 @Module({
@@ -28,9 +29,10 @@ import { TokensModule } from 'src/tokens/tokens.module';
       UsersModule,
       TokensModule,
       PassportModule,
+      MailModule,
       MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-    ]),
+        { name: User.name, schema: UserSchema },
+      ]),
   ],
   providers: [AuthService],
 })

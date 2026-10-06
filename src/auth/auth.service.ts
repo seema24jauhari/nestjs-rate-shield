@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -7,6 +7,9 @@ import * as argon2 from 'argon2';
 import * as express from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { TokensService } from '../tokens/tokens.service';
+import * as crypto from 'crypto';
+import { MailService } from '../mail/mail.service';
+
 
 @Injectable()
 export class AuthService {
@@ -15,6 +18,7 @@ export class AuthService {
     private config: ConfigService,
     private jwtService: JwtService,
     private tokensService: TokensService,
+    private mailService: MailService,
   ) {}
 
   
@@ -102,5 +106,52 @@ export class AuthService {
       correlationId: req.correlationId,
     });
     return { access_token, name: user.name, roles: user.roles };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email);
+
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(rawToken)
+        .digest('hex');
+      const expiry = new Date(Date.now() + 3600000); // 1 hour
+
+      await this.usersService.updateOne(
+        { email },
+        {
+          resetToken: tokenHash,
+          resetTokenExpiry: expiry,
+        },
+      );
+
+      await this.mailService.sendResetEmail(email, rawToken);
+    }
+
+    // Always return the same message — don't leak whether the email exists
+    return { message: 'If that email exists, a reset link has been sent' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await this.usersService.findOne({
+      resetToken: tokenHash,
+      resetTokenExpiry: { $gt: new Date() }, // not expired
+    });
+
+    if (!user) throw new BadRequestException('Invalid or expired token');
+
+    const password_hash = await argon2.hash(newPassword, {
+      type: argon2.argon2id,
+    });
+    user.password_hash = password_hash;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+
+    return { message: 'Password reset successful' };
   }
 }
