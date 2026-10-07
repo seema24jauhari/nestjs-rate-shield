@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { OtpController } from './otp.controller';
-import { MailModule } from 'src/mail/mail.module';
+import { MailModule } from '../mail/mail.module';
 import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from 'src/users/schemas/user.schema';
-import { RedisModule } from 'src/redis/redis.module';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { RedisModule } from '../redis/redis.module';
 import { OtpService } from './otp.service';
 
 @Module({

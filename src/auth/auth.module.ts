@@ -2,14 +2,14 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { RedisModule } from '../redis/redis.module';   // <- Module, not Service
 import { AuthService } from './auth.service';
-import { UsersModule } from 'src/users/users.module';
+import { UsersModule } from '../users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from 'src/users/schemas/user.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { PassportModule } from '@nestjs/passport';
-import { TokensModule } from 'src/tokens/tokens.module';
-import { MailModule } from 'src/mail/mail.module';
+import { TokensModule } from '../tokens/tokens.module';
+import { MailModule } from '../mail/mail.module';
 
 
 @Module({

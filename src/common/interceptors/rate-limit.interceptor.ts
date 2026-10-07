@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { RateLimitResult, RedisService } from '../../redis/redis.service';
 import { RATE_LIMIT_KEY } from '../decorators/rate-limit.decorator';
-import { MetricsService } from 'src/metrics/metrics.service';
+import { MetricsService } from '../../metrics/metrics.service';
 
 @Injectable()
 export class RateLimitInterceptor implements NestInterceptor {

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { MailService } from 'src/mail/mail.service';
-import { RedisService } from 'src/redis/redis.service';
+import { MailService } from '../mail/mail.service';
+import { RedisService } from '../redis/redis.service';
 
 
 @Injectable()

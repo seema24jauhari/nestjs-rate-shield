@@ -3,7 +3,7 @@ import { IpDto } from './dto/ip.dto';
 import { AdminService, ListName } from './admin.service';
 import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
-import { ApiKeyGuard } from 'src/common/gaurds/api-key.guard';
+import { ApiKeyGuard } from '../common/gaurds/api-key.guard';
 import { ApiSecurity } from '@nestjs/swagger';
 
 @Controller('admin')
