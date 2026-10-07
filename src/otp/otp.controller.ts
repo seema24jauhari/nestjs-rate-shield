@@ -2,8 +2,8 @@ import { Body, Controller, HttpCode, Post, UseInterceptors } from '@nestjs/commo
 import { SendOtpDto } from './dto/sentOtp.dto';
 import { OtpService } from './otp.service';
 import { VerifyOtpDto } from './dto/verifyOtp.dto';
-import { RateLimit } from '../decorators/rate-limit.decorator';
-import { RateLimitInterceptor } from 'src/interceptors/rate-limit.interceptor';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
+import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 
 @Controller('otp')
 @UseInterceptors(RateLimitInterceptor)     

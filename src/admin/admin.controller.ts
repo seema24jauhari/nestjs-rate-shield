@@ -1,18 +1,23 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseEnumPipe, Post, UseGuards, UseInterceptors } from '@nestjs/common';
 import { IpDto } from './dto/ip.dto';
 import { AdminService, ListName } from './admin.service';
-import { RateLimitInterceptor } from '../interceptors/rate-limit.interceptor';
-import { RateLimit } from '../decorators/rate-limit.decorator';
+import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import { ApiKeyGuard } from 'src/common/gaurds/api-key.guard';
 import { ApiSecurity } from '@nestjs/swagger';
-import { BlacklistGuard } from '../common/gaurds/blacklist.guard';
 
 @Controller('admin')
-@UseGuards(BlacklistGuard, ApiKeyGuard)
+@UseGuards(ApiKeyGuard)
 @ApiSecurity('api-key')
 @UseInterceptors(RateLimitInterceptor)     
 export class AdminController {
     constructor(private readonly adminService: AdminService) {}
+    
+    @Get('stats')
+    @RateLimit({ limit: 30, window: 60, keyBy: 'ip' })    
+    stats() {
+        return this.adminService.stats();
+    }
     
     @Post(':list')
     @RateLimit({ limit: 30, window: 60, keyBy: 'ip' })    
@@ -37,9 +42,5 @@ export class AdminController {
         return this.adminService.remove(list, ip);
     }
 
-    @Get('stats')
-    @RateLimit({ limit: 30, window: 60, keyBy: 'ip' })    
-    stats() {
-        return this.adminService.stats();
-    }
+    
 }

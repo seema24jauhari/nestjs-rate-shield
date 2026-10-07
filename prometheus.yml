@@ -1,0 +1,11 @@
+
+global:
+  scrape_interval: 15s
+ 
+scrape_configs:
+  - job_name: rate-limiter
+    metrics_path: /metrics
+    static_configs:
+      # "api" is the service name in docker-compose.yml
+      - targets: ['api:3000']
+ 

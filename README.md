@@ -210,7 +210,7 @@ npm run lint         # lint
 - ✅ Token bucket Lua script
 - ✅ `X-RateLimit-*` headers
 - ✅ Whitelist / blacklist and admin API
-- [ ] Prometheus metrics and Grafana dashboard
+- ✅ Prometheus metrics and Grafana dashboard
 - [ ] Jest tests, Docker Compose, GitHub Actions
 - [ ] Publish to npm
 

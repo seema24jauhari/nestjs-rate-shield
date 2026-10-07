@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import type { AlgoType } from '../redis/redis.service';
+import type { AlgoType } from '../../redis/redis.service';
 
 export const RATE_LIMIT_KEY = 'rate_limit';
 

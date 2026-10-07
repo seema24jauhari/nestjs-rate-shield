@@ -10,9 +10,9 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
 import { TokensModule } from './tokens/tokens.module';
 import { OtpModule } from './otp/otp.module';
 import { AdminModule } from './admin/admin.module';
-import { MerticsController } from './mertics/mertics.controller';
-import { MerticsService } from './mertics/mertics.service';
-import { MerticsModule } from './mertics/mertics.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { APP_GUARD } from '@nestjs/core';
+import { BlacklistGuard } from './common/gaurds/blacklist.guard';
 
 @Module({
   imports: [
@@ -24,10 +24,10 @@ import { MerticsModule } from './mertics/mertics.module';
         uri: config.get<string>('DATABASE_URI'),
       }),
     }), 
-    UsersModule, TokensModule, OtpModule, AdminModule, MerticsModule,
+    UsersModule, TokensModule, OtpModule, AdminModule, MetricsModule,
   ],
-  controllers: [AppController, MerticsController],
-  providers: [AppService, MerticsService],
+  controllers: [AppController],
+  providers: [AppService, { provide: APP_GUARD, useClass: BlacklistGuard }],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {

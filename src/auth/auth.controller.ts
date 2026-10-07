@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, Post, Req, Res, UseInterceptors } from '@nestjs/common';
-import { RateLimit } from 'src/decorators/rate-limit.decorator';
-import { RateLimitInterceptor } from 'src/interceptors/rate-limit.interceptor';
+import { RateLimit } from '../common/decorators/rate-limit.decorator';
+import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';

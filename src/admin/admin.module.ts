@@ -7,5 +7,6 @@ import { AdminController } from './admin.controller';
   controllers: [AdminController],
   providers: [AdminService],
   imports: [RedisModule],
+   exports: [AdminService],
 })
 export class AdminModule {}

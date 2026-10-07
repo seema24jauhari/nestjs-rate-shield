@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   // NestExpressApplication gives access to Express settings like app.set()
@@ -23,7 +24,8 @@ async function bootstrap() {
     );
   }
 
-  app.useGlobalPipes(
+  app.useGlobalInterceptors(new TransformInterceptor());
+   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       stopAtFirstError: true,

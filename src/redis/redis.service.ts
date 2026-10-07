@@ -6,17 +6,28 @@ import { join } from 'path';
 
 export type AlgoType = 'sliding-window' | 'token-bucket';
 
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number; // calls (or tokens) left
+  resetAfter: number; // seconds until a slot frees up, also used for Retry-After
+}
+ 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private client!: Redis;
   private scripts = new Map<string, string>();
 
   constructor(config: ConfigService) {
-    const redisUri =  config.get<string>('REDIS_URI') ?? 'redis://localhost:6379';
-    this.client = new Redis(redisUri);
-
+    const redisUri = config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
+    this.client = new Redis(redisUri, { maxRetriesPerRequest: 1 });
+    this.client.on('error', (e) => console.error('Redis error:', e.message || e));  
   }
 
+  private toResult(raw: unknown): RateLimitResult {
+    const [allowed, remaining, resetAfter] = raw as number[];
+    return { allowed: allowed === 1, remaining, resetAfter };
+  }
+ 
   // Reads a Lua file the first time it is needed, then reuses it from memory
   private loadScript(name: string): string {
     let script = this.scripts.get(name);
@@ -35,9 +46,9 @@ export class RedisService implements OnModuleDestroy {
     key: string,
     limit: number,
     windowSec: number,
-  ): Promise<boolean> {
+  ): Promise<RateLimitResult> {
     const now = Date.now();
-    const result = await this.client.eval(
+    const raw = await this.client.eval(
       this.loadScript('sliding-window.lua'),
       1,
       key,
@@ -46,25 +57,26 @@ export class RedisService implements OnModuleDestroy {
       limit,
       `${now}-${Math.random()}`, // unique member for this request
     );
-    return result === 1; // 1 = allowed, 0 = blocked
+    return this.toResult(raw);
   }
 
   async tokenBucket(
     key: string,
     capacity: number,
     refillRate: number, // tokens per second
-  ): Promise<boolean> {
+    requested = 1, // tokens this request uses
+  ): Promise<RateLimitResult> {
     const now = Date.now();
-    const result = await this.client.eval(
+     const raw = await this.client.eval(
       this.loadScript('token-bucket.lua'),
       1,
       key,
       capacity,
       refillRate,
       now,
+      requested,
     );
-
-    return result === 1;
+    return this.toResult(raw);    
   }
 
   // Interceptor calls this one; it picks the algorithm
@@ -73,7 +85,7 @@ export class RedisService implements OnModuleDestroy {
     limit: number,
     windowSec: number,
     algorithm: AlgoType = 'sliding-window',
-  ): Promise<boolean> {
+  ): Promise<RateLimitResult> {
     if (algorithm === 'token-bucket') {
       return this.tokenBucket(key, limit, limit / windowSec);
     }
@@ -119,4 +131,5 @@ export class RedisService implements OnModuleDestroy {
   async sismember(key: string, value: string): Promise<number> {
     return this.client.sismember(key, value);
   }
+
 }
