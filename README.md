@@ -1,6 +1,16 @@
 # Rate Limiter Middleware for NestJS
 
+[![CI](https://github.com/seema24jauhari/rate-limiter/actions/workflows/ci.yml/badge.svg)](https://github.com/seema24jauhari/rate-limiter/actions/workflows/ci.yml)
+
 A reusable rate limiting library for NestJS. Protect any endpoint with a single decorator:
+
+## Screenshots
+
+### Swagger UI
+![Swagger UI showing the auth and OTP endpoints](docs/images/swagger.png)
+
+### Grafana dashboard
+![Grafana dashboard showing allowed vs blocked requests](docs/images/grafana.png)
 
 ```ts
 @RateLimit({ limit: 3, window: 3600, keyBy: 'ip' })
