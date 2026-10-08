@@ -8,9 +8,12 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RateLimitResult, RedisService } from '../../redis/redis.service';
-import { RATE_LIMIT_KEY } from '../decorators/rate-limit.decorator';
+import {
+  RATE_LIMIT_KEY,
+  RateLimitOptions,
+} from '../decorators/rate-limit.decorator';
 import { MetricsService } from '../../metrics/metrics.service';
-
+import { Request, Response } from 'express';
 @Injectable()
 export class RateLimitInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RateLimitInterceptor.name);
@@ -23,17 +26,26 @@ export class RateLimitInterceptor implements NestInterceptor {
 
   async intercept(ctx: ExecutionContext, next: CallHandler) {
     // Read the rule that @RateLimit() attached to this route
-    const opts = this.reflector.get(RATE_LIMIT_KEY, ctx.getHandler());
+    const opts = this.reflector.get<RateLimitOptions>(
+      RATE_LIMIT_KEY,
+      ctx.getHandler(),
+    );
     if (!opts) return next.handle(); // no rule on this route, skip
 
-    const req = ctx.switchToHttp().getRequest();
-    const res = ctx.switchToHttp().getResponse();
+    const req = ctx.switchToHttp().getRequest<Request>();
+    const res = ctx.switchToHttp().getResponse<Response>();
 
     // Who is calling? Fall back to IP if the body field is missing
-    const raw = opts.keyBy === 'ip' ? req.ip : req.body?.[opts.keyBy];
-    const id = String(raw ?? req.ip).toLowerCase();
-    const endpoint = req.route.path;
-    const key = `rate_limit:${req.route.path}:${id}`;
+    const raw =
+      opts.keyBy === 'ip'
+        ? req.ip
+        : (req.body as Record<string, unknown>)?.[opts.keyBy];
+    const id =
+      typeof raw === 'string' || typeof raw === 'number'
+        ? String(raw).toLowerCase()
+        : req.ip;
+    const endpoint = req.path;
+    const key = `rate_limit:${endpoint}:${id}`;
 
     let result: RateLimitResult | null = null;
     try {
@@ -43,12 +55,16 @@ export class RateLimitInterceptor implements NestInterceptor {
         opts.window,
         opts.algorithm,
       );
-    } catch (e) {
+    } catch (e: unknown) {
       // fail-open: if Redis is down, don't break the API
-      this.logger.error(`Rate limit check failed: ${(e as Error).message}`);
+      this.logger.error(
+        `Rate limit check failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
     }
 
-     // Headers on every response (skipped only when Redis failed)
+    // Headers on every response (skipped only when Redis failed)
     if (result) {
       res.setHeader('X-RateLimit-Limit', opts.limit);
       res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -57,7 +73,7 @@ export class RateLimitInterceptor implements NestInterceptor {
         Math.ceil(Date.now() / 1000) + result.resetAfter, // Unix seconds
       );
     }
- 
+
     if (result && !result.allowed) {
       this.metrics.blocked.inc({ endpoint });
       this.logger.warn(`Blocked ${key}`);
@@ -71,7 +87,7 @@ export class RateLimitInterceptor implements NestInterceptor {
         429,
       );
     }
- 
+
     this.metrics.allowed.inc({ endpoint });
     return next.handle();
   }

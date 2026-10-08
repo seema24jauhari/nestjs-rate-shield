@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { RedisModule } from '../redis/redis.module';   // <- Module, not Service
+import { RedisModule } from '../redis/redis.module'; // <- Module, not Service
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -11,28 +11,25 @@ import { PassportModule } from '@nestjs/passport';
 import { TokensModule } from '../tokens/tokens.module';
 import { MailModule } from '../mail/mail.module';
 
-
 @Module({
   controllers: [AuthController],
   imports: [
-      JwtModule.registerAsync({
-        inject: [ConfigService],
-        useFactory: (config: ConfigService) => ({
-          secret: config.getOrThrow<string>('JWT_SECRET'),
-          signOptions: {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            expiresIn: (config.get<string>('JWT_EXPIRY') ?? '15m') as any,
-          },
-        }),
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+        signOptions: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          expiresIn: (config.get<string>('JWT_EXPIRY') ?? '15m') as any,
+        },
       }),
-      RedisModule,
-      UsersModule,
-      TokensModule,
-      PassportModule,
-      MailModule,
-      MongooseModule.forFeature([
-        { name: User.name, schema: UserSchema },
-      ]),
+    }),
+    RedisModule,
+    UsersModule,
+    TokensModule,
+    PassportModule,
+    MailModule,
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
   ],
   providers: [AuthService],
 })

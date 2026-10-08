@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-base-to-string */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
@@ -31,7 +31,7 @@ export class MailService {
 
     const { accepted, rejected } = info;
     if (rejected.length > 0) {
-      throw new Error(`Email rejected for: ${rejected.join(', ')}`);
+      throw new Error(`Email rejected for: ${rejected.map(String).join(', ')}`);
     }
 
     console.log('Email sent to:', accepted);
@@ -49,7 +49,7 @@ export class MailService {
 
     const { accepted, rejected } = info;
     if (rejected.length > 0) {
-      throw new Error(`Email rejected for: ${rejected.join(', ')}`);
+      throw new Error(`Email rejected for: ${rejected.map(String).join(', ')}`);
     }
 
     console.log('Email sent to:', accepted);

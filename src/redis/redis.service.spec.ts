@@ -44,7 +44,9 @@ describe('RedisService', () => {
       const third = await service.slidingWindow(key, 3, 60);
       const fourth = await service.slidingWindow(key, 3, 60);
 
-      expect([first.remaining, second.remaining, third.remaining]).toEqual([2, 1, 0]);
+      expect([first.remaining, second.remaining, third.remaining]).toEqual([
+        2, 1, 0,
+      ]);
       expect(fourth.remaining).toBe(0);
     });
 
@@ -99,7 +101,7 @@ describe('RedisService', () => {
       const key = uniqueKey('sw-ttl');
 
       await service.slidingWindow(key, 3, 30);
-      const ttl = await service.client.ttl(key);
+      const ttl = await service.ttl(key);
 
       expect(ttl).toBeGreaterThan(0);
       expect(ttl).toBeLessThanOrEqual(30);
@@ -186,7 +188,7 @@ describe('RedisService', () => {
       const blocked = await service.check(key, 1, 60);
 
       expect(blocked.allowed).toBe(false);
-      expect(await service.client.type(key)).toBe('zset'); // sorted set = sliding window
+      expect(await service.type(key)).toBe('zset'); // sorted set = sliding window
     });
 
     it('uses token bucket when asked', async () => {
@@ -194,7 +196,7 @@ describe('RedisService', () => {
 
       await service.check(key, 1, 60, 'token-bucket');
 
-      expect(await service.client.type(key)).toBe('hash'); // hash = token bucket
+      expect(await service.type(key)).toBe('hash'); // hash = token bucket
     });
   });
 });

@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -10,7 +15,6 @@ import { TokensService } from '../tokens/tokens.service';
 import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
 
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -21,7 +25,6 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
-  
   async register(registerDto: RegisterDto) {
     const existingUser = await this.usersService.findByEmail(registerDto.email);
 

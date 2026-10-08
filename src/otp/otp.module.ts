@@ -11,9 +11,7 @@ import { OtpService } from './otp.service';
   imports: [
     MailModule,
     RedisModule,
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-    ]),
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
   ],
   providers: [OtpService],
 })

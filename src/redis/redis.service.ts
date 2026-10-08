@@ -11,23 +11,26 @@ export interface RateLimitResult {
   remaining: number; // calls (or tokens) left
   resetAfter: number; // seconds until a slot frees up, also used for Retry-After
 }
- 
+
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private client!: Redis;
   private scripts = new Map<string, string>();
 
   constructor(config: ConfigService) {
-    const redisUri = config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
+    const redisUri =
+      config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
     this.client = new Redis(redisUri, { maxRetriesPerRequest: 1 });
-    this.client.on('error', (e) => console.error('Redis error:', e.message || e));  
+    this.client.on('error', (e) =>
+      console.error('Redis error:', e.message || e),
+    );
   }
 
   private toResult(raw: unknown): RateLimitResult {
     const [allowed, remaining, resetAfter] = raw as number[];
     return { allowed: allowed === 1, remaining, resetAfter };
   }
- 
+
   // Reads a Lua file the first time it is needed, then reuses it from memory
   private loadScript(name: string): string {
     let script = this.scripts.get(name);
@@ -67,7 +70,7 @@ export class RedisService implements OnModuleDestroy {
     requested = 1, // tokens this request uses
   ): Promise<RateLimitResult> {
     const now = Date.now();
-     const raw = await this.client.eval(
+    const raw = await this.client.eval(
       this.loadScript('token-bucket.lua'),
       1,
       key,
@@ -76,7 +79,7 @@ export class RedisService implements OnModuleDestroy {
       now,
       requested,
     );
-    return this.toResult(raw);    
+    return this.toResult(raw);
   }
 
   // Interceptor calls this one; it picks the algorithm
@@ -107,7 +110,7 @@ export class RedisService implements OnModuleDestroy {
       await this.client.set(key, value);
     }
   }
-  
+
   async del(key: string): Promise<void> {
     await this.client.del(key);
   }
@@ -115,7 +118,7 @@ export class RedisService implements OnModuleDestroy {
   async sadd(key: string, value: string): Promise<void> {
     await this.client.sadd(key, value);
   }
-  
+
   async smembers(key: string): Promise<string[]> {
     return this.client.smembers(key);
   }
@@ -126,10 +129,21 @@ export class RedisService implements OnModuleDestroy {
 
   async mget(...keys: string[]): Promise<(string | null)[]> {
     return this.client.mget(...keys);
-  } 
+  }
 
   async sismember(key: string, value: string): Promise<number> {
     return this.client.sismember(key, value);
   }
 
+  async exists(key: string): Promise<boolean> {
+    return (await this.client.exists(key)) === 1;
+  }
+
+  async ttl(key: string): Promise<number> {
+    return this.client.ttl(key);
+  }
+
+  async type(key: string): Promise<string> {
+    return this.client.type(key);
+  }
 }

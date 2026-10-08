@@ -1,4 +1,3 @@
-
 import { Global, Module } from '@nestjs/common';
 import { MetricsController } from './metrics.controller';
 import { MetricsService } from './metrics.service';
@@ -10,4 +9,3 @@ import { MetricsService } from './metrics.service';
   exports: [MetricsService],
 })
 export class MetricsModule {}
- 

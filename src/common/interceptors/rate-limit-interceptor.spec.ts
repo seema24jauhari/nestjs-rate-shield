@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   HttpCode,
-  INestApplication,
   Post,
   UseInterceptors,
 } from '@nestjs/common';
@@ -13,6 +12,8 @@ import { RateLimit } from '../decorators/rate-limit.decorator';
 import { MetricsService } from '../../metrics/metrics.service';
 import { RedisService } from '../../redis/redis.service';
 import { RateLimitInterceptor } from './rate-limit.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express/interfaces/nest-express-application.interface';
+import type { Server } from 'node:http';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
@@ -33,7 +34,12 @@ class TestController {
 
   @Post('bucket')
   @HttpCode(200)
-  @RateLimit({ limit: 1, window: 60, keyBy: 'email', algorithm: 'token-bucket' })
+  @RateLimit({
+    limit: 1,
+    window: 60,
+    keyBy: 'email',
+    algorithm: 'token-bucket',
+  })
   bucket() {
     return { ok: true };
   }
@@ -51,14 +57,21 @@ class TestController {
   }
 }
 
+type RateLimitErrorBody = {
+  statusCode: number;
+  message: string;
+  retryAfter: number;
+};
+
 const metricsMock = {
   allowed: { inc: jest.fn() },
   blocked: { inc: jest.fn() },
 };
 
 describe('RateLimitInterceptor (with real Redis)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let redis: RedisService;
+  let server: Server;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -71,10 +84,11 @@ describe('RateLimitInterceptor (with real Redis)', () => {
       ],
     }).compile();
 
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     // Each test sends its own X-Forwarded-For, so IP-based tests don't clash
-    (app as any).set('trust proxy', true);
+    app.set('trust proxy', true);
     await app.init();
+    server = app.getHttpServer();
     redis = moduleRef.get(RedisService);
   });
 
@@ -91,14 +105,19 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const body = { email: email('limit') };
 
     for (let i = 0; i < 3; i++) {
-      await request(app.getHttpServer()).post('/test/limited').send(body).expect(200);
+      await request(app.getHttpServer())
+        .post('/test/limited')
+        .send(body)
+        .expect(200);
     }
 
-    const res = await request(app.getHttpServer()).post('/test/limited').send(body);
+    const res = await request(server).post('/test/limited').send(body);
+
+    const responseBody = res.body as RateLimitErrorBody;
 
     expect(res.status).toBe(429);
-    expect(res.body.statusCode).toBe(429);
-    expect(res.body.message).toBe('Too many requests');
+    expect(responseBody.statusCode).toBe(429);
+    expect(responseBody.message).toBe('Too many requests');
   });
 
   it('sets the X-RateLimit headers on every response', async () => {
@@ -106,9 +125,11 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const remaining: string[] = [];
 
     for (let i = 0; i < 3; i++) {
-      const res = await request(app.getHttpServer()).post('/test/limited').send(body);
+      const res = await request(server).post('/test/limited').send(body);
       expect(res.headers['x-ratelimit-limit']).toBe('3');
-      expect(Number(res.headers['x-ratelimit-reset'])).toBeGreaterThan(Date.now() / 1000);
+      expect(Number(res.headers['x-ratelimit-reset'])).toBeGreaterThan(
+        Date.now() / 1000,
+      );
       remaining.push(res.headers['x-ratelimit-remaining']);
     }
 
@@ -119,15 +140,16 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const body = { email: email('retry') };
 
     for (let i = 0; i < 3; i++) {
-      await request(app.getHttpServer()).post('/test/limited').send(body);
+      await request(server).post('/test/limited').send(body);
     }
-    const res = await request(app.getHttpServer()).post('/test/limited').send(body);
+    const res = await request(server).post('/test/limited').send(body);
+    const responseBody = res.body as RateLimitErrorBody;
 
     expect(res.status).toBe(429);
     const retryAfter = Number(res.headers['retry-after']);
     expect(retryAfter).toBeGreaterThanOrEqual(1);
     expect(retryAfter).toBeLessThanOrEqual(60);
-    expect(res.body.retryAfter).toBe(retryAfter);
+    expect(responseBody.retryAfter).toBe(retryAfter);
     expect(res.headers['x-ratelimit-remaining']).toBe('0');
   });
 
@@ -136,22 +158,22 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const b = { email: email('sep-b') };
 
     for (let i = 0; i < 3; i++) {
-      await request(app.getHttpServer()).post('/test/limited').send(a);
+      await request(server).post('/test/limited').send(a);
     }
-    await request(app.getHttpServer()).post('/test/limited').send(a).expect(429);
+    await request(server).post('/test/limited').send(a).expect(429);
 
     // a different email is not affected
-    await request(app.getHttpServer()).post('/test/limited').send(b).expect(200);
+    await request(server).post('/test/limited').send(b).expect(200);
   });
 
   it('treats email case-insensitively, so changing the case does not bypass the limit', async () => {
     const lower = email('case');
 
     for (let i = 0; i < 3; i++) {
-      await request(app.getHttpServer()).post('/test/limited').send({ email: lower });
+      await request(server).post('/test/limited').send({ email: lower });
     }
 
-    await request(app.getHttpServer())
+    await request(server)
       .post('/test/limited')
       .send({ email: lower.toUpperCase() })
       .expect(429);
@@ -162,17 +184,26 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const ipB = `10.${Math.floor(Math.random() * 200)}.2.2`;
 
     for (let i = 0; i < 2; i++) {
-      await request(app.getHttpServer()).post('/test/by-ip').set('X-Forwarded-For', ipA).expect(200);
+      await request(server)
+        .post('/test/by-ip')
+        .set('X-Forwarded-For', ipA)
+        .expect(200);
     }
-    await request(app.getHttpServer()).post('/test/by-ip').set('X-Forwarded-For', ipA).expect(429);
-    await request(app.getHttpServer()).post('/test/by-ip').set('X-Forwarded-For', ipB).expect(200);
+    await request(server)
+      .post('/test/by-ip')
+      .set('X-Forwarded-For', ipA)
+      .expect(429);
+    await request(server)
+      .post('/test/by-ip')
+      .set('X-Forwarded-For', ipB)
+      .expect(200);
   });
 
   it('uses the token bucket when the decorator asks for it', async () => {
     const body = { email: email('bucket') };
 
-    await request(app.getHttpServer()).post('/test/bucket').send(body).expect(200);
-    const res = await request(app.getHttpServer()).post('/test/bucket').send(body);
+    await request(server).post('/test/bucket').send(body).expect(200);
+    const res = await request(server).post('/test/bucket').send(body);
 
     expect(res.status).toBe(429);
     expect(Number(res.headers['retry-after'])).toBeGreaterThan(0);
@@ -180,7 +211,7 @@ describe('RateLimitInterceptor (with real Redis)', () => {
 
   it('never limits a route without @RateLimit', async () => {
     for (let i = 0; i < 10; i++) {
-      await request(app.getHttpServer()).get('/test/open').expect(200);
+      await request(server).get('/test/open').expect(200);
     }
   });
 
@@ -188,25 +219,28 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const body = { email: email('metrics') };
 
     for (let i = 0; i < 4; i++) {
-      await request(app.getHttpServer()).post('/test/limited').send(body);
+      await request(server).post('/test/limited').send(body);
     }
 
     expect(metricsMock.allowed.inc).toHaveBeenCalledTimes(3);
     expect(metricsMock.blocked.inc).toHaveBeenCalledTimes(1);
-    expect(metricsMock.blocked.inc).toHaveBeenCalledWith({ endpoint: '/test/limited' });
+    expect(metricsMock.blocked.inc).toHaveBeenCalledWith({
+      endpoint: '/test/limited',
+    });
   });
 
   it('stores the counter in Redis under rate_limit:<route>:<id>', async () => {
     const id = email('key');
-    await request(app.getHttpServer()).post('/test/limited').send({ email: id });
+    await request(server).post('/test/limited').send({ email: id });
 
-    const exists = await redis.client.exists(`rate_limit:/test/limited:${id}`);
-    expect(exists).toBe(1);
+    const exists = await redis.exists(`rate_limit:/test/limited:${id}`);
+    expect(exists).toBe(true);
   });
 });
 
 describe('RateLimitInterceptor when Redis fails (fail-open)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
+  let server: Server;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -215,15 +249,19 @@ describe('RateLimitInterceptor when Redis fails (fail-open)', () => {
         RateLimitInterceptor,
         {
           provide: RedisService,
-          useValue: { check: jest.fn().mockRejectedValue(new Error('Redis is down')) },
+          useValue: {
+            check: jest.fn().mockRejectedValue(new Error('Redis is down')),
+          },
         },
         { provide: MetricsService, useValue: metricsMock },
       ],
     }).compile();
 
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
+    app.set('trust proxy', true);
     app.useLogger(false); // this test makes Redis fail on purpose, so hide the error logs
     await app.init();
+    server = app.getHttpServer();
   });
 
   afterAll(async () => {
@@ -232,7 +270,7 @@ describe('RateLimitInterceptor when Redis fails (fail-open)', () => {
 
   it('lets requests through instead of breaking the API', async () => {
     for (let i = 0; i < 5; i++) {
-      await request(app.getHttpServer())
+      await request(server)
         .post('/test/limited')
         .send({ email: email('failopen') })
         .expect(200);

@@ -6,15 +6,17 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'crypto';
-
+import { Request } from 'express';
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
   constructor(private config: ConfigService) {}
 
   canActivate(ctx: ExecutionContext): boolean {
-    const req = ctx.switchToHttp().getRequest();
+    const req = ctx.switchToHttp().getRequest<Request>();
     const sent = Buffer.from(String(req.headers['x-api-key'] ?? ''));
-    const expected = Buffer.from(this.config.getOrThrow<string>('ADMIN_API_KEY'));
+    const expected = Buffer.from(
+      this.config.getOrThrow<string>('ADMIN_API_KEY'),
+    );
 
     // timingSafeEqual needs equal lengths, so check length first
     if (sent.length !== expected.length || !timingSafeEqual(sent, expected)) {

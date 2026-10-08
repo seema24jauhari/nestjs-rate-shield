@@ -20,12 +20,16 @@ async function bootstrap() {
   if (trustProxy) {
     app.set(
       'trust proxy',
-      trustProxy === 'true' ? true : Number.isNaN(Number(trustProxy)) ? trustProxy : Number(trustProxy),
+      trustProxy === 'true'
+        ? true
+        : Number.isNaN(Number(trustProxy))
+          ? trustProxy
+          : Number(trustProxy),
     );
   }
 
   app.useGlobalInterceptors(new TransformInterceptor());
-   app.useGlobalPipes(
+  app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       stopAtFirstError: true,
@@ -45,12 +49,13 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder().setTitle('Rate Limiter')
-  .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
-  .build();
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Rate Limiter')
+    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
+    .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(config.get<number>('PORT') ?? 3000);
 }
-bootstrap();
+void bootstrap();

@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, Post, Req, Res, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UseInterceptors,
+} from '@nestjs/common';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 import { RegisterDto } from './dto/register.dto';

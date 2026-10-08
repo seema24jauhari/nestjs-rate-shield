@@ -3,12 +3,14 @@ import type { AlgoType } from '../../redis/redis.service';
 
 export const RATE_LIMIT_KEY = 'rate_limit';
 
-export const RateLimit = (opts: {
-  limit?: number;
-  window?: number;
-  keyBy?: 'ip' | 'email' | 'phone';
-  algorithm?: AlgoType;
-} = {}) =>
+export type RateLimitOptions = {
+  limit: number;
+  window: number;
+  keyBy: 'ip' | 'email' | 'phone';
+  algorithm: AlgoType;
+};
+
+export const RateLimit = (opts: Partial<RateLimitOptions> = {}) =>
   SetMetadata(RATE_LIMIT_KEY, {
     limit: opts.limit ?? 100,
     window: opts.window ?? 60,

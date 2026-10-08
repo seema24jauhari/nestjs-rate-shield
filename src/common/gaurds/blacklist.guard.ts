@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { AdminService, ListName } from '../../admin/admin.service';
+import { Request } from 'express';
 
 @Injectable()
 export class BlacklistGuard implements CanActivate {
@@ -14,7 +15,7 @@ export class BlacklistGuard implements CanActivate {
   constructor(private adminService: AdminService) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const req = ctx.switchToHttp().getRequest();
+    const req = ctx.switchToHttp().getRequest<Request>();
     // Express can report IPv4 as "::ffff:1.2.3.4", so normalise it
     const ip = String(req.ip).replace('::ffff:', '');
 
