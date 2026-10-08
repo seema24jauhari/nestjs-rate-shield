@@ -5,14 +5,13 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { AdminService, ListName } from '../../admin/admin.service';
 import { Request } from 'express';
-
+import { IpListService, ListName } from '../services/ip-list.service';
 @Injectable()
 export class BlacklistGuard implements CanActivate {
   private readonly logger = new Logger(BlacklistGuard.name);
 
-  constructor(private adminService: AdminService) {}
+  constructor(private ipListService: IpListService) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<Request>();
@@ -21,7 +20,7 @@ export class BlacklistGuard implements CanActivate {
 
     let blocked = false;
     try {
-      blocked = await this.adminService.isInList(ListName.Blacklist, ip);
+      blocked = await this.ipListService.isInList(ListName.Blacklist, ip);
     } catch (e) {
       // fail-open: if Redis is down, don't block everyone
       this.logger.error(`Blacklist check failed: ${(e as Error).message}`);

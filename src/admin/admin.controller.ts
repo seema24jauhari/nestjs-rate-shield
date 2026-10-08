@@ -11,18 +11,19 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { IpDto } from './dto/ip.dto';
-import { AdminService, ListName } from './admin.service';
+import { AdminService } from './admin.service';
 import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import { ApiKeyGuard } from '../common/gaurds/api-key.guard';
 import { ApiSecurity } from '@nestjs/swagger';
+import { IpListService, ListName } from 'src/common/services/ip-list.service';
 
 @Controller('admin')
 @UseGuards(ApiKeyGuard)
 @ApiSecurity('api-key')
 @UseInterceptors(RateLimitInterceptor)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService, private readonly ipListService: IpListService) {}
 
   @Get('stats')
   @RateLimit({ limit: 30, window: 60, keyBy: 'ip' })
@@ -37,14 +38,14 @@ export class AdminController {
     @Param('list', new ParseEnumPipe(ListName)) list: ListName,
     @Body() dto: IpDto,
   ) {
-    return this.adminService.add(list, dto.ip);
+    return this.ipListService.add(list, dto.ip);
   }
 
   @Get(':list')
   @RateLimit({ limit: 30, window: 60, keyBy: 'ip' })
   @HttpCode(200)
   getAll(@Param('list', new ParseEnumPipe(ListName)) list: ListName) {
-    return this.adminService.getAll(list);
+    return this.ipListService.getAll(list);
   }
 
   @Delete(':list/:ip')
@@ -53,6 +54,6 @@ export class AdminController {
     @Param('list', new ParseEnumPipe(ListName)) list: ListName,
     @Param('ip') ip: string,
   ) {
-    return this.adminService.remove(list, ip);
+    return this.ipListService.remove(list, ip);
   }
 }
