@@ -31,7 +31,7 @@ import { CommonModule } from './common/common.module';
     OtpModule,
     AdminModule,
     MetricsModule,
-    CommonModule
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: BlacklistGuard }],

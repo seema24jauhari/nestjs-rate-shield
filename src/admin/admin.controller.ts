@@ -23,7 +23,10 @@ import { IpListService, ListName } from 'src/common/services/ip-list.service';
 @ApiSecurity('api-key')
 @UseInterceptors(RateLimitInterceptor)
 export class AdminController {
-  constructor(private readonly adminService: AdminService, private readonly ipListService: IpListService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly ipListService: IpListService,
+  ) {}
 
   @Get('stats')
   @RateLimit({ limit: 30, window: 60, keyBy: 'ip' })

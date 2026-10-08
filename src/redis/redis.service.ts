@@ -1,5 +1,4 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -17,10 +16,8 @@ export class RedisService implements OnModuleDestroy {
   private client!: Redis;
   private scripts = new Map<string, string>();
 
-  constructor(config: ConfigService) {
-    const redisUri =
-      config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
-    this.client = new Redis(redisUri, { maxRetriesPerRequest: 1 });
+  constructor(redisUrl: string) {
+    this.client = new Redis(redisUrl, { maxRetriesPerRequest: 1 });
     this.client.on('error', (e) =>
       console.error('Redis error:', e.message || e),
     );

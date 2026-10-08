@@ -5,7 +5,6 @@ import {
   Post,
   UseInterceptors,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { RateLimit } from '../decorators/rate-limit.decorator';
@@ -14,8 +13,6 @@ import { RedisService } from '../../redis/redis.service';
 import { RateLimitInterceptor } from './rate-limit.interceptor';
 import { NestExpressApplication } from '@nestjs/platform-express/interfaces/nest-express-application.interface';
 import type { Server } from 'node:http';
-
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
 // Unique per run, so old keys in Redis never affect the tests
 const run = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -77,23 +74,28 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [TestController],
       providers: [
-        RedisService,
+        {
+          provide: RedisService,
+          useFactory: () =>
+            new RedisService(process.env.REDIS_URL ?? 'redis://localhost:6379'),
+        },
         RateLimitInterceptor,
-        { provide: ConfigService, useValue: { get: () => REDIS_URL } },
         { provide: MetricsService, useValue: metricsMock },
       ],
     }).compile();
 
     app = moduleRef.createNestApplication<NestExpressApplication>();
-    // Each test sends its own X-Forwarded-For, so IP-based tests don't clash
     app.set('trust proxy', true);
     await app.init();
+
     server = app.getHttpServer();
     redis = moduleRef.get(RedisService);
   });
 
   afterAll(async () => {
-    await app.close(); // also closes Redis (onModuleDestroy)
+    if (app) {
+      await app.close();
+    }
   });
 
   beforeEach(() => {
