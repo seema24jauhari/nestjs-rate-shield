@@ -13,7 +13,6 @@ import { AdminModule } from './admin/admin.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { APP_GUARD } from '@nestjs/core';
 import { BlacklistGuard } from './common/gaurds/blacklist.guard';
-import { IpListService } from './common/services/ip-list.service';
 import { CommonModule } from './common/common.module';
 
 @Module({
