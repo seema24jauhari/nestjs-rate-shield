@@ -9,6 +9,11 @@ A reusable rate limiting library for NestJS. Protect any endpoint with a single 
 ### Swagger UI
 ![Swagger UI showing the auth and OTP endpoints](docs/images/swagger.png)
 
+### Response
+![Response code 200](docs/images/response-200.png)
+![Response code 429](docs/images/response-429.png)
+
+
 ### Grafana dashboard
 ![Grafana dashboard showing allowed vs blocked requests](docs/images/grafana.png)
 
@@ -210,6 +215,51 @@ npm run test         # unit tests
 npm run lint         # lint
 ```
 
+## Load Test
+
+Load tested with [autocannon](https://github.com/mcollina/autocannon) against `POST /auth/login`, which is limited to 5 attempts per 15 minutes per email (sliding window).
+
+**Setup:** 10 concurrent connections, 10 seconds, local machine, Redis in Docker.
+**Run it yourself:** `npm run loadtest`
+
+| Metric | Result |
+|---|---|
+| Total requests | 14,232 |
+| Allowed (within limit) | `<from /metrics>` |
+| Blocked (`429`) | `<from /metrics>` |
+| Avg latency | 6.53 ms |
+| p99 latency | 17 ms |
+| Max latency | 54 ms |
+| Avg throughput | ~1,423 req/s |
+
+Only the first 5 requests were allowed, even with 10 simultaneous connections. This confirms that the Lua script is atomic and has no race condition under concurrent load. The test user is not registered, so allowed requests return `401` and blocked requests return `429`, which is why autocannon shows 0 `2xx` responses.
+
+<details>
+<summary>Raw autocannon output</summary>
+
+```
+Running 10s test @ http://localhost:3000/auth/login
+10 connections
+
+┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬───────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max   │
+├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼───────┤
+│ Latency │ 3 ms │ 6 ms │ 14 ms │ 17 ms │ 6.53 ms │ 3.36 ms │ 54 ms │
+└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴───────┘
+┌───────────┬────────┬────────┬────────┬────────┬─────────┬────────┬────────┐
+│ Stat      │ 1%     │ 2.5%   │ 50%    │ 97.5%  │ Avg     │ Stdev  │ Min    │
+├───────────┼────────┼────────┼────────┼────────┼─────────┼────────┼────────┤
+│ Req/Sec   │ 1,034  │ 1,034  │ 1,326  │ 2,007  │ 1,423.2 │ 317.79 │ 1,034  │
+├───────────┼────────┼────────┼────────┼────────┼─────────┼────────┼────────┤
+│ Bytes/Sec │ 484 kB │ 484 kB │ 621 kB │ 940 kB │ 666 kB  │ 149 kB │ 484 kB │
+└───────────┴────────┴────────┴────────┴────────┴─────────┴────────┴────────┘
+
+0 2xx responses, 14232 non 2xx responses
+14k requests in 10.02s, 6.66 MB read
+```
+
+</details>
+
 ## Roadmap
 
 - ✅ NestJS setup, Redis and MongoDB connection
@@ -221,7 +271,7 @@ npm run lint         # lint
 - ✅ `X-RateLimit-*` headers
 - ✅ Whitelist / blacklist and admin API
 - ✅ Prometheus metrics and Grafana dashboard
-- [ ] Jest tests, Docker Compose, GitHub Actions
+- ✅  Jest tests, Docker Compose, GitHub Actions
 - [ ] Publish to npm
 
 ## License

@@ -14,6 +14,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { APP_GUARD } from '@nestjs/core';
 import { BlacklistGuard } from './common/gaurds/blacklist.guard';
 
+
 @Module({
   imports: [
     AuthModule, RedisModule,
@@ -24,8 +25,7 @@ import { BlacklistGuard } from './common/gaurds/blacklist.guard';
         uri: config.get<string>('DATABASE_URI'),
       }),
     }), 
-    UsersModule, TokensModule, OtpModule, AdminModule, MetricsModule,
-  ],
+    UsersModule, TokensModule, OtpModule, AdminModule, MetricsModule],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: BlacklistGuard }],
 })
