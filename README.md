@@ -1,7 +1,7 @@
 # nestjs-rate-shield
 
-[![npm version](https://img.shields.io/npm/v/nestjs-rate-shield.svg)](https://www.npmjs.com/package/nestjs-rate-shield)
-[![CI](https://github.com/<your-username>/<your-repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/<your-repo>/actions)
+[![npm version](https://img.shields.io/npm/v/@seema24jauhari/nestjs-rate-shield.svg)](https://www.npmjs.com/package/@seema24jauhari/nestjs-rate-shield)
+[![CI](https://github.com/seema24jauhari/nestjs-rate-shield/actions/workflows/ci.yml/badge.svg)](https://github.com/seema24jauhari/nestjs-rate-shield/actions)
 [![license](https://img.shields.io/npm/l/nestjs-rate-shield.svg)](LICENSE)
 
 Redis-backed rate limiting for NestJS. Limit any route with one decorator, choose **sliding window** or **token bucket** per route, and block or trust IP addresses with a blacklist and whitelist.
