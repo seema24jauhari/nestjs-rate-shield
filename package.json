@@ -1,18 +1,30 @@
 {
   "name": "@seema24jauhari/nestjs-rate-shield",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Redis-backed rate limiter for NestJS with sliding-window and token-bucket algorithms",
   "author": "Seema Jauhari",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": { "type": "git", "url": "git+https://github.com/seemajauhari/nestjs-rate-shield.git" },
-  "keywords": ["nestjs", "rate-limit", "redis", "throttle","blacklist-ip", "whitelist-ip", "sliding-window", "token-bucket"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seemajauhari/nestjs-rate-shield.git"
+  },
+  "keywords": [
+    "nestjs",
+    "rate-limit",
+    "redis",
+    "throttle",
+    "blacklist-ip",
+    "whitelist-ip",
+    "sliding-window",
+    "token-bucket"
+  ],
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "nest build -p tsconfig.lib.json && cp -r src/redis/lua-scripts dist/redis/",    
+    "build": "nest build -p tsconfig.lib.json && cp -r src/redis/lua-scripts dist/redis/",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
