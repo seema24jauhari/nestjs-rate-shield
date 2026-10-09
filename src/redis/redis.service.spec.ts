@@ -1,10 +1,7 @@
-import { ConfigService } from '@nestjs/config';
 import { RateLimitResult, RedisService } from './redis.service';
 
 // These tests talk to a REAL Redis (Lua scripts cannot be tested with mocks).
 // Locally: docker run -d -p 6379:6379 redis:7-alpine
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // A unique key per test, so tests never affect each other or old data
@@ -15,8 +12,11 @@ describe('RedisService', () => {
   let service: RedisService;
 
   beforeAll(() => {
-    const config = { get: () => REDIS_URL } as unknown as ConfigService;
-    service = new RedisService(config);
+    service = new RedisService({
+      host: process.env.REDIS_HOST ?? 'localhost',
+      port: Number(process.env.REDIS_PORT ?? 6379),
+      password: process.env.REDIS_PASSWORD ?? '',
+    });
   });
 
   afterAll(async () => {

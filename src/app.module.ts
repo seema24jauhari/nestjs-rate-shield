@@ -1,43 +1,23 @@
-import { MiddlewareConsumer, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { UsersModule } from './users/users.module';
-import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
-import { TokensModule } from './tokens/tokens.module';
-import { OtpModule } from './otp/otp.module';
-import { AdminModule } from './admin/admin.module';
-import { MetricsModule } from './metrics/metrics.module';
+import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { BlacklistGuard } from './common/gaurds/blacklist.guard';
 import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
-    AuthModule,
-    RedisModule,
     ConfigModule.forRoot({ isGlobal: true }),
-    MongooseModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('DATABASE_URI'),
-      }),
+    RedisModule.forRoot({
+      host: process.env.REDIS_HOST ?? 'localhost',
+      port: Number(process.env.REDIS_PORT ?? 6379),
+      password: process.env.REDIS_PASSWORD ?? '',
     }),
-    UsersModule,
-    TokensModule,
-    OtpModule,
-    AdminModule,
-    MetricsModule,
     CommonModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: BlacklistGuard }],
 })
-export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

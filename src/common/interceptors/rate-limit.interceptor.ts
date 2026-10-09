@@ -12,7 +12,6 @@ import {
   RATE_LIMIT_KEY,
   RateLimitOptions,
 } from '../decorators/rate-limit.decorator';
-import { MetricsService } from '../../metrics/metrics.service';
 import { Request, Response } from 'express';
 @Injectable()
 export class RateLimitInterceptor implements NestInterceptor {
@@ -21,7 +20,6 @@ export class RateLimitInterceptor implements NestInterceptor {
   constructor(
     private reflector: Reflector,
     private redis: RedisService,
-    private metrics: MetricsService,
   ) {}
 
   async intercept(ctx: ExecutionContext, next: CallHandler) {
@@ -75,7 +73,6 @@ export class RateLimitInterceptor implements NestInterceptor {
     }
 
     if (result && !result.allowed) {
-      this.metrics.blocked.inc({ endpoint });
       this.logger.warn(`Blocked ${key}`);
       res.setHeader('Retry-After', result.resetAfter);
       throw new HttpException(
@@ -88,7 +85,6 @@ export class RateLimitInterceptor implements NestInterceptor {
       );
     }
 
-    this.metrics.allowed.inc({ endpoint });
     return next.handle();
   }
 }

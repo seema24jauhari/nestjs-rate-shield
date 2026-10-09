@@ -5,6 +5,12 @@ import { join } from 'path';
 
 export type AlgoType = 'sliding-window' | 'token-bucket';
 
+export interface RedisOptions {
+  host: string;
+  port: number;
+  password?: string;
+}
+
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number; // calls (or tokens) left
@@ -16,8 +22,8 @@ export class RedisService implements OnModuleDestroy {
   private client!: Redis;
   private scripts = new Map<string, string>();
 
-  constructor(redisUrl: string) {
-    this.client = new Redis(redisUrl, { maxRetriesPerRequest: 1 });
+  constructor(options: RedisOptions) {
+    this.client = new Redis(options);
     this.client.on('error', (e) =>
       console.error('Redis error:', e.message || e),
     );
@@ -32,10 +38,7 @@ export class RedisService implements OnModuleDestroy {
   private loadScript(name: string): string {
     let script = this.scripts.get(name);
     if (!script) {
-      script = readFileSync(
-        join(process.cwd(), 'src/redis/lua-scripts', name),
-        'utf8',
-      );
+      script = readFileSync(join(__dirname, 'lua-scripts', name), 'utf8');
       this.scripts.set(name, script);
     }
 

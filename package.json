@@ -1,12 +1,18 @@
 {
-  "name": "rate-limiter",
-  "version": "0.0.1",
-  "description": "",
-  "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "name": "nestjs-rate-shield",
+  "version": "1.0.0",
+  "description": "Redis-backed rate limiter for NestJS with sliding-window and token-bucket algorithms",
+  "author": "Seema Jauhari",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": { "type": "git", "url": "git+https://github.com/seemajauhari/nestjs-rate-shield.git" },
+  "keywords": ["nestjs", "rate-limit", "redis", "throttle","blacklist-ip", "whitelist-ip", "sliding-window", "token-bucket"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "nest build",
+    "build": "nest build -p tsconfig.lib.json && cp -r src/redis/lua-scripts dist/redis/",    
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -17,30 +23,18 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
-    "loadtest": "autocannon -c 10 -d 10 -m POST -H \"Content-Type: application/json\" -b '{\"email\":\"load@test.com\",\"password\":\"Pass123!\"}' http://localhost:3000/auth/login"
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
-    "@nestjs/jwt": "^11.0.2",
-    "@nestjs/mongoose": "^11.0.4",
-    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
-    "@nestjs/swagger": "^11.4.7",
-    "argon2": "^0.45.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "ioredis": "^6.0.0",
-    "mongoose": "^9.10.3",
-    "nest-winston": "^2.0.0",
-    "nodemailer": "^9.0.3",
-    "prom-client": "^15.1.3",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "uuid": "^14.0.2",
-    "winston": "^3.19.0"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -51,7 +45,6 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
-    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^7.0.0",
     "autocannon": "^8.0.0",
     "eslint": "^9.18.0",
@@ -85,5 +78,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,19 +1,19 @@
-import { Module } from '@nestjs/common';
-import { RedisService } from './redis.service';
-import { ConfigService } from '@nestjs/config';
+import { DynamicModule, Module } from '@nestjs/common';
+import { RedisService, RedisOptions } from './redis.service';
 
-@Module({
-  providers: [
-    {
-      provide: RedisService,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const redisUrl =
-          config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
-        return new RedisService(redisUrl);
-      },
-    },
-  ],
-  exports: [RedisService], // lets other modules use it
-})
-export class RedisModule {}
+@Module({})
+export class RedisModule {
+  static forRoot(options: RedisOptions): DynamicModule {
+    return {
+      global: true,
+      module: RedisModule,
+      providers: [
+        {
+          provide: RedisService,
+          useFactory: () => new RedisService(options),
+        },
+      ],
+      exports: [RedisService],
+    };
+  }
+}

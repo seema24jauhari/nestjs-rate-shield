@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": [
+    "src/index.ts",
+    "src/redis/**/*.ts",
+    "src/common/decorators/**/*.ts",
+    "src/common/interceptors/rate-limit.interceptor.ts",
+    "src/common/gaurds/blacklist.guard.ts",
+    "src/common/services/ip-list.service.ts"
+  ],
+  "exclude": [
+    "**/*.spec.ts"
+  ]
+}

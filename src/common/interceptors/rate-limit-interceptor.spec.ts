@@ -8,7 +8,6 @@ import {
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { RateLimit } from '../decorators/rate-limit.decorator';
-import { MetricsService } from '../../metrics/metrics.service';
 import { RedisService } from '../../redis/redis.service';
 import { RateLimitInterceptor } from './rate-limit.interceptor';
 import { NestExpressApplication } from '@nestjs/platform-express/interfaces/nest-express-application.interface';
@@ -60,11 +59,6 @@ type RateLimitErrorBody = {
   retryAfter: number;
 };
 
-const metricsMock = {
-  allowed: { inc: jest.fn() },
-  blocked: { inc: jest.fn() },
-};
-
 describe('RateLimitInterceptor (with real Redis)', () => {
   let app: NestExpressApplication;
   let redis: RedisService;
@@ -80,7 +74,6 @@ describe('RateLimitInterceptor (with real Redis)', () => {
             new RedisService(process.env.REDIS_URL ?? 'redis://localhost:6379'),
         },
         RateLimitInterceptor,
-        { provide: MetricsService, useValue: metricsMock },
       ],
     }).compile();
 
@@ -96,11 +89,6 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     if (app) {
       await app.close();
     }
-  });
-
-  beforeEach(() => {
-    metricsMock.allowed.inc.mockClear();
-    metricsMock.blocked.inc.mockClear();
   });
 
   it('allows requests up to the limit and blocks the next with 429', async () => {
@@ -223,12 +211,6 @@ describe('RateLimitInterceptor (with real Redis)', () => {
     for (let i = 0; i < 4; i++) {
       await request(server).post('/test/limited').send(body);
     }
-
-    expect(metricsMock.allowed.inc).toHaveBeenCalledTimes(3);
-    expect(metricsMock.blocked.inc).toHaveBeenCalledTimes(1);
-    expect(metricsMock.blocked.inc).toHaveBeenCalledWith({
-      endpoint: '/test/limited',
-    });
   });
 
   it('stores the counter in Redis under rate_limit:<route>:<id>', async () => {
@@ -251,11 +233,12 @@ describe('RateLimitInterceptor when Redis fails (fail-open)', () => {
         RateLimitInterceptor,
         {
           provide: RedisService,
+          useFactory: () =>
+            new RedisService(process.env.REDIS_URL ?? 'redis://localhost:6379'),
           useValue: {
             check: jest.fn().mockRejectedValue(new Error('Redis is down')),
           },
         },
-        { provide: MetricsService, useValue: metricsMock },
       ],
     }).compile();
 
@@ -267,7 +250,9 @@ describe('RateLimitInterceptor when Redis fails (fail-open)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('lets requests through instead of breaking the API', async () => {

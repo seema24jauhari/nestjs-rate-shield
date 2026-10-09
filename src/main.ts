@@ -6,9 +6,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   // NestExpressApplication gives access to Express settings like app.set()
@@ -28,7 +26,6 @@ async function bootstrap() {
     );
   }
 
-  app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -48,13 +45,6 @@ async function bootstrap() {
       },
     }),
   );
-
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Rate Limiter')
-    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(config.get<number>('PORT') ?? 3000);
 }

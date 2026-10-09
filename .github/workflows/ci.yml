@@ -2,24 +2,18 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
-      mongodb:
-        image: mongo:8
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --eval 'db.adminCommand({ ping: 1 })'"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
       redis:
         image: redis:7-alpine
         ports:
@@ -31,30 +25,27 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URI: mongodb://localhost:27017/rate_limiter_test
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
 
-      JWT_SECRET: test-secret
-      JWT_EXPIRY: 15m
-
-      REDIS_URL: redis://localhost:6379
-
-      NODE_ENV: test
-      TRUST_PROXY: "true"
-
-      SMTP_HOST: localhost
-      SMTP_PORT: 1025
-      SMTP_USER: test
-      SMTP_PASS: test
-
-      ADMIN_API_KEY: test-admin-key
-    
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
       - run: npm run lint --if-present
       - run: npm run build
+
+      - name: Check the Lua scripts are in the build
+        run: |
+          test -f dist/redis/lua-scripts/sliding-window.lua
+          test -f dist/redis/lua-scripts/token-bucket.lua
+
       - run: npm test -- --passWithNoTests
+
+      - name: Preview what npm would publish
+        run: npm pack --dry-run

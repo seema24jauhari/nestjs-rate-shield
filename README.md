@@ -1,278 +1,229 @@
-# Rate Limiter Middleware for NestJS
+# nestjs-rate-shield
 
-[![CI](https://github.com/seema24jauhari/rate-limiter/actions/workflows/ci.yml/badge.svg)](https://github.com/seema24jauhari/rate-limiter/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/nestjs-rate-shield.svg)](https://www.npmjs.com/package/nestjs-rate-shield)
+[![CI](https://github.com/<your-username>/<your-repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/<your-repo>/actions)
+[![license](https://img.shields.io/npm/l/nestjs-rate-shield.svg)](LICENSE)
 
-A reusable rate limiting library for NestJS. Protect any endpoint with a single decorator:
-
-## Screenshots
-
-### Swagger UI
-![Swagger UI showing the auth and OTP endpoints](docs/images/swagger.png)
-
-### Response
-![Response code 200](docs/images/response-200.png)
-![Response code 429](docs/images/response-429.png)
-
-
-### Grafana dashboard
-![Grafana dashboard showing allowed vs blocked requests](docs/images/grafana.png)
+Redis-backed rate limiting for NestJS. Limit any route with one decorator, choose **sliding window** or **token bucket** per route, and block or trust IP addresses with a blacklist and whitelist.
 
 ```ts
-@RateLimit({ limit: 3, window: 3600, keyBy: 'ip' })
-@Post('register')
-register() {}
+@Post('login')
+@RateLimit({ limit: 5, window: 900, keyBy: 'email' })   // 5 attempts per 15 minutes, per email
+login(@Body() dto: LoginDto) { ... }
 ```
-
-Counting is done in **Redis using Lua scripts**, so it stays accurate even with thousands of simultaneous requests (no race conditions).
 
 ## Features
 
-- `@RateLimit({ limit, window, keyBy })` decorator
-- Sliding window algorithm (Redis Sorted Set + Lua)
-- Token bucket algorithm (Redis Hash + Lua)
-- Key by IP, email or phone
-- Standard `X-RateLimit-*` response headers and `429` with `Retry-After`
-- Fail-open when Redis is down (availability over strict limiting)
-- Whitelist / blacklist and admin API
-- Prometheus metrics
-- Swagger docs, Docker support, Jest tests, CI/CD
+- **`@RateLimit()` decorator:** set the limit, window, caller key and algorithm per route.
+- **Two algorithms:** sliding window (strict counts) and token bucket (bursts with a steady refill).
+- **Atomic counting:** each check runs as a single Lua script in Redis, so there are no race conditions under concurrent traffic, even across several app instances.
+- **Standard headers:** `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and an exact `Retry-After` on `429`.
+- **Blacklist and whitelist:** block abusive IPs with `403`, and let trusted IPs skip limiting.
+- **Fail-open:** if Redis is unreachable, requests are allowed and the error is logged, so the limiter never takes your API down.
 
-## How it works
+## Requirements
 
-```
-Client request
-      |
-      v
-Controller (@RateLimit rules attached by the decorator)
-      |
-      v
-RateLimitInterceptor (runs before the controller)
-  1. reads the rules
-  2. builds the key (e.g. rate_limit:/auth/register:192.168.1.1)
-      |
-      v
-Redis + Lua script (atomic: remove old entries -> count -> add if allowed)
-      |
-      +-- count < limit  -> controller runs, 200 OK + X-RateLimit-* headers
-      +-- count >= limit -> 429 Too Many Requests + Retry-After
+- Node.js 22 and NestJS 11 (the versions this package is tested with)
+- A running Redis server
+- The Express platform (`@nestjs/platform-express`)
+
+## Installation
+
+```bash
+npm install nestjs-rate-shield
 ```
 
-| Part | Role |
+## Quick start
+
+### 1. Register the modules
+
+```ts
+import { Module } from '@nestjs/common';
+import { RedisModule, CommonModule } from 'nestjs-rate-shield';
+
+@Module({
+  imports: [
+    RedisModule.forRoot({
+      host: process.env.REDIS_HOST ?? 'localhost',
+      port: Number(process.env.REDIS_PORT ?? 6379),
+      password: process.env.REDIS_PASSWORD || undefined,
+    }),
+    CommonModule,
+  ],
+})
+export class AppModule {}
+```
+
+Your application supplies the Redis settings. Keep credentials in environment variables.
+
+### 2. Limit a route
+
+```ts
+import { Controller, Post, UseInterceptors } from '@nestjs/common';
+import { RateLimit, RateLimitInterceptor } from 'nestjs-rate-shield';
+
+@Controller('auth')
+@UseInterceptors(RateLimitInterceptor)
+export class AuthController {
+  @Post('register')
+  @RateLimit({ limit: 3, window: 3600, keyBy: 'ip' })   // 3 sign-ups per hour, per IP
+  register() { ... }
+}
+```
+
+The interceptor does nothing on routes that have no `@RateLimit()`. To apply it to the whole app, register it with `APP_INTERCEPTOR` instead of using `@UseInterceptors` on each controller.
+
+## `@RateLimit()` options
+
+| Option | Default | Description |
+|---|---|---|
+| `limit` | `100` | Maximum requests per window (sliding window), or the bucket size (token bucket) |
+| `window` | `60` | Window length in seconds (sliding window), or the seconds it takes to refill a full bucket (token bucket) |
+| `keyBy` | `'ip'` | Who is counted: `'ip'`, `'email'` or `'phone'` |
+| `algorithm` | `'sliding-window'` | `'sliding-window'` or `'token-bucket'` |
+
+Put the decorator on the **route method**. It is not read from the controller class.
+
+## Algorithms
+
+### Sliding window
+
+Counts the requests made in the last `window` seconds. Once `limit` requests are inside that period, further requests are blocked until the oldest one leaves the window. Use it when you need a strict count and don't want the burst a fixed window allows at its edges (for example login, sign-up and password reset).
+
+```ts
+@RateLimit({ limit: 5, window: 900, keyBy: 'email', algorithm: 'sliding-window' })
+```
+
+### Token bucket
+
+Each caller has a bucket that holds up to `limit` tokens. Every request uses one token, and tokens refill continuously at `limit / window` per second. A caller can send a short burst, then is held to a steady rate. Use it for spacing rules such as OTP resends.
+
+```ts
+// A bucket of 1 token that refills in 30 seconds: one send every 30 seconds
+@RateLimit({ limit: 1, window: 30, keyBy: 'email', algorithm: 'token-bucket' })
+```
+
+Another example: `limit: 20, window: 60` gives a bucket of 20 tokens that refills about 1 token every 3 seconds.
+
+## How callers are identified
+
+- The counter key is `rate_limit:<route path>:<caller>`, so each route has its **own** counter for each caller.
+- `keyBy: 'ip'` uses `req.ip`.
+- `keyBy: 'email'` and `'phone'` read `req.body.email` and `req.body.phone`.
+- If that body field is missing, the caller falls back to the IP.
+- Values are lowercased, so `User@Mail.com` and `user@mail.com` share one counter.
+
+## Responses and headers
+
+Allowed responses include:
+
+| Header | Meaning |
 |---|---|
-| Decorator | Declares the rule on an endpoint |
-| Interceptor | Enforces the rule before the controller runs |
-| Redis | Remembers request counts, shared across app instances |
-| Lua script | Makes check + count + add one atomic step |
+| `X-RateLimit-Limit` | The limit set on the route |
+| `X-RateLimit-Remaining` | Requests (or tokens) left |
+| `X-RateLimit-Reset` | Unix time (seconds) when a slot frees up, or when the bucket is full again |
 
-## Demo endpoints
-
-| Endpoint | Limit | Key | Algorithm |
-|---|---|---|---|
-| `POST /auth/register` | 3 per hour | IP | Sliding window |
-| `POST /auth/login` | 5 per 15 min | Email | Sliding window |
-| `POST /otp/send` | 1 per 60 sec | Phone | Token bucket |
-
-Example response when blocked:
+A blocked request gets HTTP `429` with a `Retry-After` header (seconds to wait) and this body:
 
 ```json
 {
   "statusCode": 429,
-  "message": "Too many attempts. Try in 45 min.",
-  "retryAfter": 2700
+  "message": "Too many requests",
+  "retryAfter": 12
 }
 ```
 
-Headers returned on every response:
+If your frontend runs on another origin, expose these headers in CORS so browser code can read them:
 
+```ts
+app.enableCors({
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Retry-After'],
+});
 ```
-X-RateLimit-Limit: 3
-X-RateLimit-Remaining: 2
-X-RateLimit-Reset: 1720003600
+
+## Blacklist and whitelist
+
+- **Blacklist:** `BlacklistGuard` returns `403 Forbidden` for blacklisted IPs on every route it covers. A blacklisted IP is blocked even if it is also whitelisted.
+- **Whitelist:** whitelisted IPs skip rate limiting.
+
+Register the guard globally:
+
+```ts
+import { APP_GUARD } from '@nestjs/core';
+import { BlacklistGuard, CommonModule } from 'nestjs-rate-shield';
+
+@Module({
+  imports: [CommonModule],
+  providers: [{ provide: APP_GUARD, useClass: BlacklistGuard }],
+})
+export class AppModule {}
 ```
 
-## Tech stack
+Manage the lists with `IpListService`:
 
-NestJS, TypeScript, Redis (ioredis), MongoDB (Mongoose), Argon2, Swagger, Winston, Docker, Jest, Prometheus, GitHub Actions.
+```ts
+import { Injectable } from '@nestjs/common';
+import { IpListService, ListName } from 'nestjs-rate-shield';
 
-## Getting started
+@Injectable()
+export class IpManagementService {
+  constructor(private readonly ipList: IpListService) {}
 
-### Prerequisites
+  blockIp(ip: string)  { return this.ipList.add(ListName.Blacklist, ip); }
+  trustIp(ip: string)  { return this.ipList.add(ListName.Whitelist, ip); }
+  unblockIp(ip: string) { return this.ipList.remove(ListName.Blacklist, ip); }
+}
+```
 
-- Node.js 20+
-- Docker
+> **Security:** the package does not ship admin routes. If you expose these methods over HTTP, protect them with your own authentication, or anyone could whitelist themselves.
 
-### Install
+## Behind a proxy or load balancer
+
+Behind Nginx, a cloud load balancer or Cloudflare, your app sees the proxy's address unless Express is told to trust it, and then every user shares one limit. Set this in `main.ts`:
+
+```ts
+app.set('trust proxy', 1);   // trust exactly one proxy in front of the app
+```
+
+Use the real number of proxies. `true` trusts the whole `X-Forwarded-For` header, which any client can fake to avoid IP limits.
+
+Users behind the same office or school network share one public IP. For routes where the user is known, prefer `keyBy: 'email'` or `'phone'` over `'ip'`.
+
+## Reliability
+
+- **Redis unreachable:** the request is allowed, the error is logged, and the rate-limit headers are skipped for that response. The limiter fails open on purpose, so a Redis outage doesn't become an API outage.
+- **Several app instances:** all of them share the same counters through Redis.
+- **Cleanup:** every key expires on its own after a quiet period, so Redis doesn't fill up.
+
+## Suggested limits
+
+| Route | `limit` / `window` | `keyBy` | `algorithm` |
+|---|---|---|---|
+| Sign-up | 3 / 3600 | `ip` | sliding-window |
+| Login | 5 / 900 | `email` | sliding-window |
+| Forgot password | 3 / 3600 | `email` | sliding-window |
+| Send OTP | 1 / 30 | `email` or `phone` | token-bucket |
+| Verify OTP | 5 / 900 | `email` or `phone` | sliding-window |
+
+## Limitations
+
+- One rule per route.
+- The decorator works on route methods, not on controller classes.
+- Express only (not Fastify).
+
+## Exports
+
+`RedisModule`, `RedisService`, `CommonModule`, `RateLimit`, `RateLimitInterceptor`, `IpListService`, `ListName`, `BlacklistGuard`
+
+## Development and testing
 
 ```bash
-git clone <your-repo-url>
-cd rate-limiter
 npm install
+npm run build     # compiles to dist/ and copies the Lua scripts
+npm test          # needs a Redis server on localhost:6379
 ```
 
-### Start Redis and MongoDB
-
-```bash
-docker run -d --name redis -p 6379:6379 redis
-docker run -d --name mongo -p 27017:27017 mongo
-```
-
-### Environment variables
-
-Create a `.env` file in the project root:
-
-```
-PORT=3000
-MONGO_URI=mongodb://localhost:27017/rate-limiter
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-### Run
-
-```bash
-npm run start:dev
-```
-
-Open the Swagger UI at `http://localhost:3000/api/docs` and try the endpoints.
-
-### Test the limiter
-
-```bash
-for i in 1 2 3 4; do
-  curl -i -X POST localhost:3000/auth/register \
-    -H "Content-Type: application/json" \
-    -d '{"name":"Seema","email":"seema@test.com","password":"Pass123!"}'
-done
-```
-
-Calls 1 to 3 return `200`, call 4 returns `429`.
-
-## Project structure
-
-```
-src/
-  algorithms/
-    sliding-window.ts
-    token-bucket.ts
-  decorators/
-    rate-limit.decorator.ts
-  interceptors/
-    rate-limit.interceptor.ts
-  redis/
-    redis.module.ts
-    redis.service.ts
-    lua-scripts/
-      sliding-window.lua
-      token-bucket.lua
-  auth/                     # demo endpoints
-    dto/
-    schemas/
-    auth.controller.ts
-    auth.service.ts
-  metrics/
-    prometheus.service.ts
-test/
-  sliding-window.spec.ts
-  token-bucket.spec.ts
-docker-compose.yml
-.github/workflows/ci.yml
-```
-
-## Sliding window Lua script
-
-```lua
-local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
-local limit = tonumber(ARGV[3])
-local member = ARGV[4]
-
-redis.call("ZREMRANGEBYSCORE", key, 0, now - window * 1000)
-local count = redis.call("ZCARD", key)
-
-if count < limit then
-  redis.call("ZADD", key, now, member)
-  redis.call("EXPIRE", key, window)
-  return 1   -- allowed
-else
-  return 0   -- blocked (429)
-end
-```
-
-## Architecture decisions
-
-- **ADR-001: Lua over MULTI/EXEC.** Lua scripts run atomically in Redis. MULTI/EXEC does not let you make decisions between commands, so concurrent requests can slip through.
-- **ADR-002: Sliding window over fixed window.** A fixed window allows bursts at the window boundary (for example 2x the limit across two windows).
-- **ADR-003: Fail-open on Redis failure.** If Redis is down, requests are allowed and an error is logged, so the limiter never takes down the API.
-- **ADR-004: Interceptor over middleware.** Each endpoint has its own rule, and only an interceptor can read the decorator metadata of the handler that will run.
-
-## Scripts
-
-```bash
-npm run start:dev    # run in watch mode
-npm run build        # compile
-npm run test         # unit tests
-npm run lint         # lint
-```
-
-## Load Test
-
-Load tested with [autocannon](https://github.com/mcollina/autocannon) against `POST /auth/login`, which is limited to 5 attempts per 15 minutes per email (sliding window).
-
-**Setup:** 10 concurrent connections, 10 seconds, local machine, Redis in Docker.
-**Run it yourself:** `npm run loadtest`
-
-| Metric | Result |
-|---|---|
-| Total requests | 14,232 |
-| Allowed (within limit) | `<from /metrics>` |
-| Blocked (`429`) | `<from /metrics>` |
-| Avg latency | 6.53 ms |
-| p99 latency | 17 ms |
-| Max latency | 54 ms |
-| Avg throughput | ~1,423 req/s |
-
-Only the first 5 requests were allowed, even with 10 simultaneous connections. This confirms that the Lua script is atomic and has no race condition under concurrent load. The test user is not registered, so allowed requests return `401` and blocked requests return `429`, which is why autocannon shows 0 `2xx` responses.
-
-<details>
-<summary>Raw autocannon output</summary>
-
-```
-Running 10s test @ http://localhost:3000/auth/login
-10 connections
-
-┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬───────┐
-│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max   │
-├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼───────┤
-│ Latency │ 3 ms │ 6 ms │ 14 ms │ 17 ms │ 6.53 ms │ 3.36 ms │ 54 ms │
-└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴───────┘
-┌───────────┬────────┬────────┬────────┬────────┬─────────┬────────┬────────┐
-│ Stat      │ 1%     │ 2.5%   │ 50%    │ 97.5%  │ Avg     │ Stdev  │ Min    │
-├───────────┼────────┼────────┼────────┼────────┼─────────┼────────┼────────┤
-│ Req/Sec   │ 1,034  │ 1,034  │ 1,326  │ 2,007  │ 1,423.2 │ 317.79 │ 1,034  │
-├───────────┼────────┼────────┼────────┼────────┼─────────┼────────┼────────┤
-│ Bytes/Sec │ 484 kB │ 484 kB │ 621 kB │ 940 kB │ 666 kB  │ 149 kB │ 484 kB │
-└───────────┴────────┴────────┴────────┴────────┴─────────┴────────┴────────┘
-
-0 2xx responses, 14232 non 2xx responses
-14k requests in 10.02s, 6.66 MB read
-```
-
-</details>
-
-## Roadmap
-
-- ✅ NestJS setup, Redis and MongoDB connection
-- ✅ Register and login endpoints with DTO validation
-- ✅ Swagger docs
-- ✅ Sliding window Lua script
-- ✅ `@RateLimit()` decorator and interceptor
-- ✅ Token bucket Lua script
-- ✅ `X-RateLimit-*` headers
-- ✅ Whitelist / blacklist and admin API
-- ✅ Prometheus metrics and Grafana dashboard
-- ✅  Jest tests, Docker Compose, GitHub Actions
-- [ ] Publish to npm
+The tests run against a real Redis, because the Lua scripts can't be tested with mocks. They cover both algorithms, concurrent requests (for example 20 parallel calls with a limit of 5 allow exactly 5), the response headers, and the fail-open behavior.
 
 ## License
 
