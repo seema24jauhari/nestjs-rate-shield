@@ -1,6 +1,6 @@
 {
   "name": "@seema24jauhari/nestjs-rate-shield",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Redis-backed rate limiter for NestJS with sliding-window and token-bucket algorithms",
   "author": "Seema Jauhari",
   "license": "MIT",
