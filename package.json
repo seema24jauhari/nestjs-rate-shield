@@ -8,8 +8,9 @@
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seemajauhari/nestjs-rate-shield.git"
+    "url": "https://github.com/seema24jauhari/nestjs-rate-shield.git"
   },
+  "homepage": "https://github.com/seema24jauhari/nestjs-rate-shield#readme",
   "keywords": [
     "nestjs",
     "rate-limit",
